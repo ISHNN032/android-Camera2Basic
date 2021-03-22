@@ -2,6 +2,7 @@
 Android Camera2Basic Sample
 ===========================
 
-This repo has been migrated to [github.com/android/camera][1]. Please check that repo for future updates. Thank you!
+Dual Camera Preview App
+based on Android Camera2Basic Sample
 
-[1]: https://github.com/android/camera
+https://github.com/googlearchive/android-Camera2Basic
