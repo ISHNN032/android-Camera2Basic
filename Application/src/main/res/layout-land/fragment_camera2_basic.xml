@@ -19,7 +19,7 @@
 
     <com.example.android.camera2basic.dualcamprev.AutoFitTextureView
         android:id="@+id/texture_back"
-        android:layout_width="320dp"
+        android:layout_width="640dp"
         android:layout_height="match_parent"
         android:layout_alignParentStart="true"
         android:layout_alignParentTop="true"
@@ -27,7 +27,7 @@
 
     <com.example.android.camera2basic.dualcamprev.AutoFitTextureView
         android:id="@+id/texture_front"
-        android:layout_width="320dp"
+        android:layout_width="640dp"
         android:layout_height="match_parent"
         android:layout_alignParentTop="true"
         android:layout_alignParentEnd="true"
