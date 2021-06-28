@@ -33,16 +33,15 @@ import android.hardware.camera2.CameraCaptureSession;
 import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CameraDevice;
 import android.hardware.camera2.CameraManager;
-import android.hardware.camera2.CaptureRequest;
 import android.hardware.camera2.params.StreamConfigurationMap;
 import android.media.ImageReader;
 import android.os.Bundle;
 import android.os.Handler;
-import android.support.annotation.NonNull;
-import android.support.v4.app.ActivityCompat;
-import android.support.v4.app.DialogFragment;
-import android.support.v4.app.Fragment;
-import android.support.v4.content.ContextCompat;
+import androidx.annotation.NonNull;
+import androidx.core.app.ActivityCompat;
+import androidx.fragment.app.DialogFragment;
+import androidx.fragment.app.Fragment;
+import androidx.core.content.ContextCompat;
 import android.util.Log;
 import android.util.Size;
 import android.view.LayoutInflater;
@@ -50,7 +49,6 @@ import android.view.Surface;
 import android.view.TextureView;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.Toast;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -86,7 +84,7 @@ public class Camera2BasicFragment extends Fragment
     private CameraDevice mCameraDevice_Back;
     private ImageReader mImageReader_Back;
     private Semaphore mCameraOpenCloseLock_Back = new Semaphore(1);
-    private Size mPreviewSize_Back;
+    private Size mPreviewSize_Back = new Size(0,0);
 
     private String mCameraId_Front;
     private AutoFitTextureView mTextureView_Front;
@@ -94,7 +92,7 @@ public class Camera2BasicFragment extends Fragment
     private CameraDevice mCameraDevice_Front;
     private ImageReader mImageReader_Front;
     private Semaphore mCameraOpenCloseLock_Front = new Semaphore(1);
-    private Size mPreviewSize_Front;
+    private Size mPreviewSize_Front = new Size(0,0);
 
     CameraManager manager;
 
@@ -465,7 +463,9 @@ public class Camera2BasicFragment extends Fragment
                     if (!mCameraOpenCloseLock_Back.tryAcquire(2500, TimeUnit.MILLISECONDS)) {
                         throw new RuntimeException("Time out waiting to lock camera opening.");
                     }
-                    manager.openCamera(mCameraId_Back, mStateCallback_Back, null);
+                    if(mCameraId_Back != null){
+                        manager.openCamera(mCameraId_Back, mStateCallback_Back, null);
+                    }
                 } catch (CameraAccessException e) {
                     e.printStackTrace();
                 } catch (InterruptedException e) {
@@ -485,7 +485,9 @@ public class Camera2BasicFragment extends Fragment
                     if (!mCameraOpenCloseLock_Front.tryAcquire(2500, TimeUnit.MILLISECONDS)) {
                         throw new RuntimeException("Time out waiting to lock camera opening.");
                     }
-                    manager.openCamera(mCameraId_Front, mStateCallback_Front, null);
+                    if(mCameraId_Front != null){
+                        manager.openCamera(mCameraId_Front, mStateCallback_Front, null);
+                    }
                 } catch (CameraAccessException e) {
                     e.printStackTrace();
                 } catch (InterruptedException e) {

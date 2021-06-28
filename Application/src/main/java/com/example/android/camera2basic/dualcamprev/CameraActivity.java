@@ -17,11 +17,16 @@
 package com.example.android.camera2basic.dualcamprev;
 
 import android.os.Bundle;
-import android.support.v7.app.AppCompatActivity;
+import android.os.Handler;
+import android.os.SystemProperties;
+import android.util.Log;
+import android.view.KeyEvent;
 
-import com.example.android.camera2basic.dualcamprev.Camera2BasicFragment;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.fragment.app.FragmentTransaction;
 
 public class CameraActivity extends AppCompatActivity {
+    //CheckThread mThread = new CheckThread();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -34,4 +39,44 @@ public class CameraActivity extends AppCompatActivity {
         }
     }
 
+    @Override
+    public boolean onKeyDown(int keyCode, KeyEvent event) {
+        Log.e("KeyF12", "Down");
+        if (keyCode == KeyEvent.KEYCODE_F12){
+            FragmentTransaction tr = getSupportFragmentManager().beginTransaction();
+            tr.replace(R.id.container, Camera2BasicFragment.newInstance());
+            tr.commit();
+        }
+        return super.onKeyDown(keyCode, event);
+    }
+
+//    @Override
+//    protected void onStart() {
+//        super.onStart();
+//        mThread.start();
+//    }
+//
+//    @Override
+//    protected void onStop() {
+//        super.onStop();
+//        mThread.interrupt();
+//    }
+//
+//    static class CheckThread extends Thread {
+//        public void run() {
+//            String org = "0";
+//            while(! interrupted()){
+//                try {
+//                    String s = SystemProperties.get("sys.rk.sw1", "0");
+//                    if(! org.equals(s)){
+//                        org = s;
+//                        Log.d("sys.rk.sw1", org);
+//                    }
+//                    sleep(100);
+//                } catch (InterruptedException e) {
+//                    e.printStackTrace();
+//                }
+//            }
+//        }
+//    }
 }
