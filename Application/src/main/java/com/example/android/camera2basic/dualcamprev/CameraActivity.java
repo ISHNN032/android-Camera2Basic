@@ -39,16 +39,16 @@ public class CameraActivity extends AppCompatActivity {
         }
     }
 
-    @Override
-    public boolean onKeyDown(int keyCode, KeyEvent event) {
-        Log.e("KeyF12", "Down");
-        if (keyCode == KeyEvent.KEYCODE_F12){
-            FragmentTransaction tr = getSupportFragmentManager().beginTransaction();
-            tr.replace(R.id.container, Camera2BasicFragment.newInstance());
-            tr.commit();
-        }
-        return super.onKeyDown(keyCode, event);
-    }
+//    @Override
+//    public boolean onKeyDown(int keyCode, KeyEvent event) {
+//        Log.e("KeyF12", "Down");
+//        if (keyCode == KeyEvent.KEYCODE_F12){
+//            FragmentTransaction tr = getSupportFragmentManager().beginTransaction();
+//            tr.replace(R.id.container, Camera2BasicFragment.newInstance());
+//            tr.commit();
+//        }
+//        return super.onKeyDown(keyCode, event);
+//    }
 
 //    @Override
 //    protected void onStart() {

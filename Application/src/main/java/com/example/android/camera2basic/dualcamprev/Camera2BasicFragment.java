@@ -33,15 +33,18 @@ import android.hardware.camera2.CameraCaptureSession;
 import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CameraDevice;
 import android.hardware.camera2.CameraManager;
+import android.hardware.camera2.CaptureRequest;
 import android.hardware.camera2.params.StreamConfigurationMap;
 import android.media.ImageReader;
 import android.os.Bundle;
 import android.os.Handler;
+
 import androidx.annotation.NonNull;
 import androidx.core.app.ActivityCompat;
 import androidx.fragment.app.DialogFragment;
 import androidx.fragment.app.Fragment;
 import androidx.core.content.ContextCompat;
+
 import android.util.Log;
 import android.util.Size;
 import android.view.LayoutInflater;
@@ -49,6 +52,7 @@ import android.view.Surface;
 import android.view.TextureView;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Toast;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -79,20 +83,23 @@ public class Camera2BasicFragment extends Fragment
     private static final int MAX_PREVIEW_HEIGHT = 1080;
 
     private String mCameraId_Back;
+
     private AutoFitTextureView mTextureView_Back;
     private CameraCaptureSession mCaptureSession_Back;
     private CameraDevice mCameraDevice_Back;
     private ImageReader mImageReader_Back;
     private Semaphore mCameraOpenCloseLock_Back = new Semaphore(1);
-    private Size mPreviewSize_Back = new Size(0,0);
+    private Size mPreviewSize_Back = new Size(0, 0);
 
+
+    private boolean mCameraFront_Toggle = false;
     private String mCameraId_Front;
     private AutoFitTextureView mTextureView_Front;
     private CameraCaptureSession mCaptureSession_Front;
     private CameraDevice mCameraDevice_Front;
     private ImageReader mImageReader_Front;
     private Semaphore mCameraOpenCloseLock_Front = new Semaphore(1);
-    private Size mPreviewSize_Front = new Size(0,0);
+    private Size mPreviewSize_Front = new Size(0, 0);
 
     CameraManager manager;
 
@@ -229,6 +236,54 @@ public class Camera2BasicFragment extends Fragment
     public void onViewCreated(final View view, Bundle savedInstanceState) {
         mTextureView_Back = (AutoFitTextureView) view.findViewById(R.id.texture_back);
         mTextureView_Front = (AutoFitTextureView) view.findViewById(R.id.texture_front);
+        mTextureView_Front.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                if (mCameraFront_Toggle) {
+                    Log.e("Clicked", "close");
+                    closeCamera(1);
+                } else {
+                    Log.e("Clicked", "open");
+                    openCamera(1, mPreviewSize_Front.getWidth(), mPreviewSize_Front.getHeight());
+//
+//                    Handler handler = new Handler();
+//                    handler.postDelayed(new Runnable() {
+//                        @Override
+//                        public void run() {
+//                            if (mTextureView_Back.isAvailable()) {
+//                                Log.e("DEBUG", "openCamera 0");
+//                                openCamera(0, mTextureView_Back.getWidth(), mTextureView_Back.getHeight());
+//                            } else {
+//                                mTextureView_Back.setSurfaceTextureListener(new TextureView.SurfaceTextureListener() {
+//                                    @Override
+//                                    public void onSurfaceTextureAvailable(SurfaceTexture texture, int width, int height) {
+//                                        Log.e("DEBUG", "onSurfaceTextureAvailable 0");
+//                                        openCamera(0, width, height);
+//                                    }
+//
+//                                    @Override
+//                                    public void onSurfaceTextureSizeChanged(SurfaceTexture texture, int width, int height) {
+//                                        Log.e("DEBUG", "onSurfaceTextureSizeChanged 0");
+//                                        configureTransform(0, width, height);
+//                                    }
+//
+//                                    @Override
+//                                    public boolean onSurfaceTextureDestroyed(SurfaceTexture texture) {
+//                                        Log.e("DEBUG", "onSurfaceTextureDestroyed 0");
+//                                        return true;
+//                                    }
+//
+//                                    @Override
+//                                    public void onSurfaceTextureUpdated(SurfaceTexture texture) {
+//                                        Log.e("DEBUG", "onSurfaceTextureUpdated 0");
+//                                    }
+//                                });
+//                            }
+//                        }
+//                    }, 0);
+                }
+            }
+        });
     }
 
     @Override
@@ -281,7 +336,7 @@ public class Camera2BasicFragment extends Fragment
                     });
                 }
             }
-        },0);
+        }, 0);
 
         handler.postDelayed(new Runnable() {
             @Override
@@ -321,7 +376,8 @@ public class Camera2BasicFragment extends Fragment
 
     @Override
     public void onPause() {
-        closeCamera();
+        closeCamera(0);
+        closeCamera(1);
         super.onPause();
     }
 
@@ -351,8 +407,8 @@ public class Camera2BasicFragment extends Fragment
         Activity activity = getActivity();
         CameraManager manager = (CameraManager) activity.getSystemService(Context.CAMERA_SERVICE);
 
-        switch (camera_num){
-            case 0:{
+        switch (camera_num) {
+            case 0: {
                 try {
                     for (String cameraId : manager.getCameraIdList()) {
                         CameraCharacteristics characteristics
@@ -399,7 +455,7 @@ public class Camera2BasicFragment extends Fragment
                 }
                 break;
             }
-            case 1:{
+            case 1: {
                 try {
                     for (String cameraId : manager.getCameraIdList()) {
                         CameraCharacteristics characteristics
@@ -450,8 +506,8 @@ public class Camera2BasicFragment extends Fragment
     }
 
     private void openCamera(int camera_num, int width, int height) {
-        switch (camera_num){
-            case 0:{
+        switch (camera_num) {
+            case 0: {
                 if (ContextCompat.checkSelfPermission(getActivity(), Manifest.permission.CAMERA)
                         != PackageManager.PERMISSION_GRANTED) {
                     requestCameraPermission();
@@ -463,9 +519,7 @@ public class Camera2BasicFragment extends Fragment
                     if (!mCameraOpenCloseLock_Back.tryAcquire(2500, TimeUnit.MILLISECONDS)) {
                         throw new RuntimeException("Time out waiting to lock camera opening.");
                     }
-                    if(mCameraId_Back != null){
-                        manager.openCamera(mCameraId_Back, mStateCallback_Back, null);
-                    }
+                    manager.openCamera(mCameraId_Back, mStateCallback_Back, null);
                 } catch (CameraAccessException e) {
                     e.printStackTrace();
                 } catch (InterruptedException e) {
@@ -473,7 +527,7 @@ public class Camera2BasicFragment extends Fragment
                 }
                 break;
             }
-            case 1:{
+            case 1: {
                 if (ContextCompat.checkSelfPermission(getActivity(), Manifest.permission.CAMERA)
                         != PackageManager.PERMISSION_GRANTED) {
                     requestCameraPermission();
@@ -485,9 +539,8 @@ public class Camera2BasicFragment extends Fragment
                     if (!mCameraOpenCloseLock_Front.tryAcquire(2500, TimeUnit.MILLISECONDS)) {
                         throw new RuntimeException("Time out waiting to lock camera opening.");
                     }
-                    if(mCameraId_Front != null){
-                        manager.openCamera(mCameraId_Front, mStateCallback_Front, null);
-                    }
+                    mCameraFront_Toggle = true;
+                    manager.openCamera(mCameraId_Front, mStateCallback_Front, null);
                 } catch (CameraAccessException e) {
                     e.printStackTrace();
                 } catch (InterruptedException e) {
@@ -498,37 +551,44 @@ public class Camera2BasicFragment extends Fragment
         }
     }
 
-    private void closeCamera() {
+    private void closeCamera(int num) {
         try {
-            mCameraOpenCloseLock_Back.acquire();
-            if (null != mCaptureSession_Back) {
-                mCaptureSession_Back.close();
-                mCaptureSession_Back = null;
-            }
-            mCameraOpenCloseLock_Front.acquire();
-            if (null != mCaptureSession_Front) {
-                mCaptureSession_Front.close();
-                mCaptureSession_Front = null;
+            switch (num) {
+                case 0: {
+                    mCameraOpenCloseLock_Back.acquire();
+                    if (null != mCaptureSession_Back) {
+                        mCaptureSession_Back.close();
+                        mCaptureSession_Back = null;
+                    }
+                    if (null != mCameraDevice_Back) {
+                        mCameraDevice_Back.close();
+                        mCameraDevice_Back = null;
+                    }
+                    if (null != mImageReader_Back) {
+                        mImageReader_Back.close();
+                        mImageReader_Back = null;
+                    }
+                    break;
+                }
+                case 1: {
+                    mCameraFront_Toggle = false;
+                    mCameraOpenCloseLock_Front.acquire();
+                    if (null != mCaptureSession_Front) {
+                        mCaptureSession_Front.close();
+                        mCaptureSession_Front = null;
+                    }
+                    if (null != mCameraDevice_Front) {
+                        mCameraDevice_Front.close();
+                        mCameraDevice_Front = null;
+                    }
+                    if (null != mImageReader_Front) {
+                        mImageReader_Front.close();
+                        mImageReader_Front = null;
+                    }
+                    break;
+                }
             }
 
-            if (null != mCameraDevice_Back) {
-                mCameraDevice_Back.close();
-                mCameraDevice_Back = null;
-            }
-            if (null != mCameraDevice_Front) {
-                mCameraDevice_Front.close();
-                mCameraDevice_Front = null;
-            }
-
-
-            if (null != mImageReader_Back) {
-                mImageReader_Back.close();
-                mImageReader_Back = null;
-            }
-            if (null != mImageReader_Front) {
-                mImageReader_Front.close();
-                mImageReader_Front = null;
-            }
         } catch (InterruptedException e) {
             throw new RuntimeException("Interrupted while trying to lock camera closing.", e);
         } finally {
@@ -669,8 +729,8 @@ public class Camera2BasicFragment extends Fragment
         float centerX = viewRect.centerX();
         float centerY = viewRect.centerY();
 
-        switch (camera_num){
-            case 0:{
+        switch (camera_num) {
+            case 0: {
                 RectF bufferRect = new RectF(0, 0, mPreviewSize_Back.getHeight(), mPreviewSize_Back.getWidth());
                 if (Surface.ROTATION_90 == rotation || Surface.ROTATION_270 == rotation) {
                     bufferRect.offset(centerX - bufferRect.centerX(), centerY - bufferRect.centerY());
@@ -689,7 +749,7 @@ public class Camera2BasicFragment extends Fragment
                 mTextureView_Back.setTransform(matrix);
                 break;
             }
-            case 1:{
+            case 1: {
                 RectF bufferRect = new RectF(0, 0, mPreviewSize_Front.getHeight(), mPreviewSize_Front.getWidth());
                 if (Surface.ROTATION_90 == rotation || Surface.ROTATION_270 == rotation) {
                     bufferRect.offset(centerX - bufferRect.centerX(), centerY - bufferRect.centerY());
