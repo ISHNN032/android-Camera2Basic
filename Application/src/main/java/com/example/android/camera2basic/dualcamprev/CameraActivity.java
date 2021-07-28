@@ -16,14 +16,17 @@
 
 package com.example.android.camera2basic.dualcamprev;
 
+import android.Manifest;
+import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.os.Bundle;
-import android.os.Handler;
-import android.os.SystemProperties;
 import android.util.Log;
 import android.view.KeyEvent;
+import android.widget.TextView;
 
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.fragment.app.FragmentTransaction;
 
 public class CameraActivity extends AppCompatActivity {
     //CheckThread mThread = new CheckThread();
@@ -39,16 +42,51 @@ public class CameraActivity extends AppCompatActivity {
         }
     }
 
-//    @Override
-//    public boolean onKeyDown(int keyCode, KeyEvent event) {
-//        Log.e("KeyF12", "Down");
-//        if (keyCode == KeyEvent.KEYCODE_F12){
+    @Override
+    protected void onResume() {
+        super.onResume();
+        BroadcastReceiver receiver = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                String action = intent.getAction();
+                switch (action){
+                    case "com.android.server.display.broadcast.DISCONNECTED": {
+                        int value = intent.getIntExtra("displayValue", -1);
+                        boolean connected = intent.getBooleanExtra("connected", false);
+                        Log.e("onReceive",
+                                String.format("action: %s, value: %d, connected: %s", action, value, connected));
+                        break;
+                    }
+                    case "android.intent.action.HDMI_PLUGGED": {
+                        Bundle value = intent.getExtras();
+                        Log.e("onReceive",
+                                String.format("action: %s, value: %s", action, value.toString()));
+                        Camera2BasicFragment fragment = (Camera2BasicFragment) getSupportFragmentManager().getFragments().get(0);
+                        fragment.refreshCamera();
+                        break;
+                    }
+                }
+            }
+        };
+        IntentFilter filter = new IntentFilter("com.android.server.display.broadcast.CONNECTION_CHANGED");
+        filter.addAction("android.intent.action.HDMI_PLUGGED");
+        registerReceiver(receiver, filter);
+    }
+
+    @Override
+    public boolean onKeyDown(int keyCode, KeyEvent event) {
+        Log.e("KeyF12", "Down");
+        if (keyCode == KeyEvent.KEYCODE_F12){
+            Camera2BasicFragment fragment = (Camera2BasicFragment) getSupportFragmentManager().getFragments().get(0);
+            fragment.checkCameraMode(true);
 //            FragmentTransaction tr = getSupportFragmentManager().beginTransaction();
 //            tr.replace(R.id.container, Camera2BasicFragment.newInstance());
 //            tr.commit();
-//        }
-//        return super.onKeyDown(keyCode, event);
-//    }
+        }
+        return super.onKeyDown(keyCode, event);
+    }
+
+
 
 //    @Override
 //    protected void onStart() {

@@ -15,22 +15,61 @@
 -->
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:background="#444444">
 
     <com.example.android.camera2basic.dualcamprev.AutoFitTextureView
         android:id="@+id/texture_back"
         android:clickable="true"
-        android:layout_width="640dp"
-        android:layout_height="match_parent"
+        android:layout_width="1137dp"
+        android:layout_height="640dp"
         android:layout_alignParentStart="true"
-        android:layout_alignParentTop="true"
-        android:layout_alignParentBottom="true"/>
+        android:layout_alignParentTop="true"/>
+
+    <TextView
+        android:id="@+id/text_camera_back"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textColor="#FFFFFF"
+        android:textSize="24sp"
+        android:text="no signal"
+        android:layout_below="@id/texture_back"
+        android:layout_alignParentStart="true" />
+
+    <TextView
+        android:id="@+id/text_resolution_back"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textColor="#FFFFFF"
+        android:textSize="24sp"
+        android:text="X"
+        android:layout_below="@id/text_camera_back"
+        android:layout_alignParentStart="true" />
+
+    <Button
+        android:id="@+id/btn_cam_back"
+        android:layout_width="120dp"
+        android:layout_height="80dp"
+        android:text="ON / OFF"
+        android:textSize="24sp"
+        android:layout_toEndOf="@id/texture_back"
+        android:layout_alignTop="@id/texture_back"
+        />
+
+    <Button
+        android:id="@+id/btn_cam_front"
+        android:layout_width="120dp"
+        android:layout_height="80dp"
+        android:text="ON / OFF"
+        android:textSize="24sp"
+        android:layout_alignParentBottom="true"
+        android:layout_toStartOf="@id/texture_front"
+        />
 
     <com.example.android.camera2basic.dualcamprev.AutoFitTextureView
         android:id="@+id/texture_front"
-        android:layout_width="640dp"
-        android:layout_height="match_parent"
-        android:layout_alignParentTop="true"
+        android:layout_width="568dp"
+        android:layout_height="320dp"
         android:layout_alignParentEnd="true"
         android:layout_alignParentBottom="true"/>
 </RelativeLayout>

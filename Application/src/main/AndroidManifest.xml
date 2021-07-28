@@ -26,6 +26,8 @@
 
     <uses-feature android:name="android.hardware.camera" />
 
+    <protected-broadcast android:name="com.android.server.display.broadcast.DISCONNECTED"/>
+
     <application
         android:name="androidx.multidex.MultiDexApplication"
         android:allowBackup="true"
@@ -38,6 +40,8 @@
                   android:label="@string/app_name">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
+                <action android:name="com.android.server.display.broadcast.DISCONNECTED"/>
+                <action android:name="android.intent.action.HDMI_PLUGGED"/>
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>

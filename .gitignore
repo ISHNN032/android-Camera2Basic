@@ -10,3 +10,9 @@ build/
 .gradle/
 
 Application/release/
+
+Application/libs/
+
+java_pid15676.hprof
+
+*.hprof

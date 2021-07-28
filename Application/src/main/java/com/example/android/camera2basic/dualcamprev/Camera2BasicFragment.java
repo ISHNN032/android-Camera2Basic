@@ -17,11 +17,17 @@
 package com.example.android.camera2basic.dualcamprev;
 
 import android.Manifest;
+import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.Dialog;
+import android.app.DisplayDetectManager;
+import android.app.IDisplayDetectService;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.DialogInterface;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.graphics.ImageFormat;
 import android.graphics.Matrix;
@@ -45,6 +51,9 @@ import androidx.fragment.app.DialogFragment;
 import androidx.fragment.app.Fragment;
 import androidx.core.content.ContextCompat;
 
+import android.os.IBinder;
+import android.os.RemoteException;
+import android.os.SystemProperties;
 import android.util.Log;
 import android.util.Size;
 import android.view.LayoutInflater;
@@ -52,6 +61,8 @@ import android.view.Surface;
 import android.view.TextureView;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Button;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import java.util.ArrayList;
@@ -82,26 +93,34 @@ public class Camera2BasicFragment extends Fragment
      */
     private static final int MAX_PREVIEW_HEIGHT = 1080;
 
-    private String mCameraId_Back;
 
+    private String mCameraId_Back;
     private AutoFitTextureView mTextureView_Back;
     private CameraCaptureSession mCaptureSession_Back;
     private CameraDevice mCameraDevice_Back;
     private ImageReader mImageReader_Back;
-    private Semaphore mCameraOpenCloseLock_Back = new Semaphore(1);
+    private final Semaphore mCameraOpenCloseLock_Back = new Semaphore(1);
     private Size mPreviewSize_Back = new Size(0, 0);
 
+    private TextView mTextCameraMode_Back;
+    private TextView mTextResolution_Back;
+    private boolean mCameraMode_isHDMI;
+    private boolean mCameraBack_Toggle = false;
 
-    private boolean mCameraFront_Toggle = false;
+
     private String mCameraId_Front;
     private AutoFitTextureView mTextureView_Front;
     private CameraCaptureSession mCaptureSession_Front;
     private CameraDevice mCameraDevice_Front;
     private ImageReader mImageReader_Front;
-    private Semaphore mCameraOpenCloseLock_Front = new Semaphore(1);
+    private final Semaphore mCameraOpenCloseLock_Front = new Semaphore(1);
     private Size mPreviewSize_Front = new Size(0, 0);
 
+    private boolean mCameraFront_Toggle = false;
+
+
     CameraManager manager;
+    DisplayDetectManager displayManager;
 
     /**
      * {@link CameraDevice.StateCallback} is called when {@link CameraDevice} changes its state.
@@ -127,7 +146,7 @@ public class Camera2BasicFragment extends Fragment
             mCameraOpenCloseLock_Back.release();
             cameraDevice.close();
             mCameraDevice_Back = null;
-            Log.e("Camera_Callback_Error", cameraDevice.toString() + " Error");
+            Log.e("Camera_Callback_Error", cameraDevice.toString() + " Error :" + error);
         }
 
     };
@@ -236,7 +255,25 @@ public class Camera2BasicFragment extends Fragment
     public void onViewCreated(final View view, Bundle savedInstanceState) {
         mTextureView_Back = (AutoFitTextureView) view.findViewById(R.id.texture_back);
         mTextureView_Front = (AutoFitTextureView) view.findViewById(R.id.texture_front);
-        mTextureView_Front.setOnClickListener(new View.OnClickListener() {
+        mTextCameraMode_Back = (TextView) view.findViewById(R.id.text_camera_back);
+        mTextResolution_Back = (TextView) view.findViewById(R.id.text_resolution_back);
+        Button mBtnBack = (Button) view.findViewById(R.id.btn_cam_back);
+        Button mBtnFront = (Button) view.findViewById(R.id.btn_cam_front);
+
+        mBtnBack.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                if (mCameraBack_Toggle) {
+                    Log.e("Clicked", "close");
+                    closeCamera(0);
+                } else {
+                    Log.e("Clicked", "open");
+                    openCamera(0, mPreviewSize_Back.getWidth(), mPreviewSize_Back.getHeight());
+                }
+            }
+        });
+
+        mBtnFront.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
                 if (mCameraFront_Toggle) {
@@ -245,42 +282,6 @@ public class Camera2BasicFragment extends Fragment
                 } else {
                     Log.e("Clicked", "open");
                     openCamera(1, mPreviewSize_Front.getWidth(), mPreviewSize_Front.getHeight());
-//
-//                    Handler handler = new Handler();
-//                    handler.postDelayed(new Runnable() {
-//                        @Override
-//                        public void run() {
-//                            if (mTextureView_Back.isAvailable()) {
-//                                Log.e("DEBUG", "openCamera 0");
-//                                openCamera(0, mTextureView_Back.getWidth(), mTextureView_Back.getHeight());
-//                            } else {
-//                                mTextureView_Back.setSurfaceTextureListener(new TextureView.SurfaceTextureListener() {
-//                                    @Override
-//                                    public void onSurfaceTextureAvailable(SurfaceTexture texture, int width, int height) {
-//                                        Log.e("DEBUG", "onSurfaceTextureAvailable 0");
-//                                        openCamera(0, width, height);
-//                                    }
-//
-//                                    @Override
-//                                    public void onSurfaceTextureSizeChanged(SurfaceTexture texture, int width, int height) {
-//                                        Log.e("DEBUG", "onSurfaceTextureSizeChanged 0");
-//                                        configureTransform(0, width, height);
-//                                    }
-//
-//                                    @Override
-//                                    public boolean onSurfaceTextureDestroyed(SurfaceTexture texture) {
-//                                        Log.e("DEBUG", "onSurfaceTextureDestroyed 0");
-//                                        return true;
-//                                    }
-//
-//                                    @Override
-//                                    public void onSurfaceTextureUpdated(SurfaceTexture texture) {
-//                                        Log.e("DEBUG", "onSurfaceTextureUpdated 0");
-//                                    }
-//                                });
-//                            }
-//                        }
-//                    }, 0);
                 }
             }
         });
@@ -294,84 +295,140 @@ public class Camera2BasicFragment extends Fragment
     @Override
     public void onResume() {
         super.onResume();
-        // When the screen is turned off and turned back on, the SurfaceTexture is already
-        // available, and "onSurfaceTextureAvailable" will not be called. In that case, we can open
-        // a camera and start preview from here (otherwise, we wait until the surface is ready in
-        // the SurfaceTextureListener).
         Activity activity = getActivity();
         assert activity != null;
         manager = (CameraManager) activity.getSystemService(Context.CAMERA_SERVICE);
+        displayManager = (DisplayDetectManager) activity.getSystemService("display_detect");
+        if(displayManager != null){
+            //displayManager.setDisplayValue(2);
+            Log.d(TAG, "display value : " + displayManager.getDisplayValue());
+            Log.d(TAG, "display status : " + displayManager.getDisplayState());
+        }
+        checkCameraMode(false);
+
         Handler handler = new Handler();
 
+        if(!mCameraBack_Toggle){
+            handler.postDelayed(new Runnable() {
+                @Override
+                public void run() {
+                    if (mTextureView_Back.isAvailable()) {
+                        Log.e("DEBUG", "openCamera 0");
+                        openCamera(0, mTextureView_Back.getWidth(), mTextureView_Back.getHeight());
+                    } else {
+                        mTextureView_Back.setSurfaceTextureListener(new TextureView.SurfaceTextureListener() {
+                            @Override
+                            public void onSurfaceTextureAvailable(SurfaceTexture texture, int width, int height) {
+                                Log.e("DEBUG", "onSurfaceTextureAvailable 0");
+                                openCamera(0, width, height);
+                            }
+
+                            @Override
+                            public void onSurfaceTextureSizeChanged(SurfaceTexture texture, int width, int height) {
+                                Log.e("DEBUG", "onSurfaceTextureSizeChanged 0");
+                                configureTransform(0, width, height);
+                            }
+
+                            @Override
+                            public boolean onSurfaceTextureDestroyed(SurfaceTexture texture) {
+                                Log.e("DEBUG", "onSurfaceTextureDestroyed 0");
+                                return true;
+                            }
+
+                            @Override
+                            public void onSurfaceTextureUpdated(SurfaceTexture texture) {
+                            }
+                        });
+                    }
+                }
+            }, 0);
+        }
+
+        if(!mCameraFront_Toggle){
+            handler.postDelayed(new Runnable() {
+                @Override
+                public void run() {
+                    if (mTextureView_Front.isAvailable()) {
+                        Log.e("DEBUG", "openCamera 1");
+//                        openCamera(1, mTextureView_Front.getWidth(), mTextureView_Front.getHeight());
+                    } else {
+                        mTextureView_Front.setSurfaceTextureListener(new TextureView.SurfaceTextureListener() {
+                            @Override
+                            public void onSurfaceTextureAvailable(SurfaceTexture texture, int width, int height) {
+                                Log.e("DEBUG", "onSurfaceTextureAvailable 1");
+//                                openCamera(1, width, height);
+                            }
+
+                            @Override
+                            public void onSurfaceTextureSizeChanged(SurfaceTexture texture, int width, int height) {
+                                Log.e("DEBUG", "onSurfaceTextureSizeChanged 1");
+                                configureTransform(1, width, height);
+                            }
+
+                            @Override
+                            public boolean onSurfaceTextureDestroyed(SurfaceTexture texture) {
+                                Log.e("DEBUG", "onSurfaceTextureDestroyed 1");
+                                return true;
+                            }
+
+                            @Override
+                            public void onSurfaceTextureUpdated(SurfaceTexture texture) {
+                            }
+                        });
+                    }
+                }
+            }, 0);
+        }
+    }
+
+    public void resumeCamera(){}
+
+    public void refreshCamera(){
+        Handler handler = new Handler();
+        if(mCameraBack_Toggle){
+            closeCamera(0);
+        }
         handler.postDelayed(new Runnable() {
             @Override
             public void run() {
-                if (mTextureView_Back.isAvailable()) {
-                    Log.e("DEBUG", "openCamera 0");
-                    openCamera(0, mTextureView_Back.getWidth(), mTextureView_Back.getHeight());
-                } else {
-                    mTextureView_Back.setSurfaceTextureListener(new TextureView.SurfaceTextureListener() {
-                        @Override
-                        public void onSurfaceTextureAvailable(SurfaceTexture texture, int width, int height) {
-                            Log.e("DEBUG", "onSurfaceTextureAvailable 0");
-                            openCamera(0, width, height);
-                        }
-
-                        @Override
-                        public void onSurfaceTextureSizeChanged(SurfaceTexture texture, int width, int height) {
-                            Log.e("DEBUG", "onSurfaceTextureSizeChanged 0");
-                            configureTransform(0, width, height);
-                        }
-
-                        @Override
-                        public boolean onSurfaceTextureDestroyed(SurfaceTexture texture) {
-                            Log.e("DEBUG", "onSurfaceTextureDestroyed 0");
-                            return true;
-                        }
-
-                        @Override
-                        public void onSurfaceTextureUpdated(SurfaceTexture texture) {
-                            Log.e("DEBUG", "onSurfaceTextureUpdated 0");
-                        }
-                    });
-                }
+                openCamera(0, mPreviewSize_Back.getWidth(), mPreviewSize_Back.getHeight());
             }
-        }, 0);
+        }, 1000);
+    }
 
+    public void checkCameraMode(boolean withSwitching){
+        Handler handler = new Handler();
+
+        if(displayManager != null){
+            if(withSwitching) {
+                displayManager.setDisplayValue(2);
+            }
+            handler.postDelayed(() -> {
+                boolean mode = ( displayManager.getDisplayValue() == 0) ;
+                mCameraMode_isHDMI = mode;
+                String modeText = mode ? "HDMI":"DSUB";
+                mTextCameraMode_Back.setText(modeText);
+                android.view.ViewGroup.LayoutParams layoutParams = mTextureView_Back.getLayoutParams();
+                if(mode){
+                    layoutParams.width = 1280;
+                    layoutParams.height = 720;
+                }else {
+                    layoutParams.width = 800;
+                    layoutParams.height = 600;
+                }
+                mTextureView_Back.setLayoutParams(layoutParams);
+            }, 1000);
+        }
+
+        if(mCameraBack_Toggle){
+            closeCamera(0);
+        }
         handler.postDelayed(new Runnable() {
             @Override
             public void run() {
-                if (mTextureView_Front.isAvailable()) {
-                    Log.e("DEBUG", "openCamera 1");
-                    openCamera(1, mTextureView_Front.getWidth(), mTextureView_Front.getHeight());
-                } else {
-                    mTextureView_Front.setSurfaceTextureListener(new TextureView.SurfaceTextureListener() {
-                        @Override
-                        public void onSurfaceTextureAvailable(SurfaceTexture texture, int width, int height) {
-                            Log.e("DEBUG", "onSurfaceTextureAvailable 1");
-                            openCamera(1, width, height);
-                        }
-
-                        @Override
-                        public void onSurfaceTextureSizeChanged(SurfaceTexture texture, int width, int height) {
-                            Log.e("DEBUG", "onSurfaceTextureSizeChanged 1");
-                            configureTransform(1, width, height);
-                        }
-
-                        @Override
-                        public boolean onSurfaceTextureDestroyed(SurfaceTexture texture) {
-                            Log.e("DEBUG", "onSurfaceTextureDestroyed 1");
-                            return true;
-                        }
-
-                        @Override
-                        public void onSurfaceTextureUpdated(SurfaceTexture texture) {
-                            Log.e("DEBUG", "onSurfaceTextureUpdated 1");
-                        }
-                    });
-                }
+                openCamera(0, mPreviewSize_Back.getWidth(), mPreviewSize_Back.getHeight());
             }
-        }, 0);
+        }, 1000);
     }
 
     @Override
@@ -402,8 +459,11 @@ public class Camera2BasicFragment extends Fragment
         }
     }
 
+    @SuppressLint("SetTextI18n")
     @SuppressWarnings("SuspiciousNameCombination")
     private void setUpCameraOutputs(int camera_num, int width, int height) {
+        Log.e("setUpCameraOutputs", "setUpCameraOutputs" +camera_num);
+
         Activity activity = getActivity();
         CameraManager manager = (CameraManager) activity.getSystemService(Context.CAMERA_SERVICE);
 
@@ -420,17 +480,33 @@ public class Camera2BasicFragment extends Fragment
                             continue;
                         }
 
-                        // For still image captures, we use the largest available size.
-                        Size largest = Collections.max(
-                                Arrays.asList(map.getOutputSizes(ImageFormat.JPEG)),
-                                new CompareSizesByArea());
-                        mImageReader_Back = ImageReader.newInstance(largest.getWidth(), largest.getHeight(),
+                        List<Size> coSizes = Arrays.asList(map.getOutputSizes(ImageFormat.JPEG));
+
+                        Size resolution;
+
+                        if(mCameraMode_isHDMI){
+                            if(coSizes.stream().anyMatch(size -> size.getWidth() == 1280)){
+                                resolution = coSizes.stream().filter(size -> size.getWidth() == 1280).findFirst().get();
+                            }else{
+                                resolution = Collections.max( coSizes, new CompareSizesByArea());
+                            }
+                        }
+                        else{
+                            if(coSizes.stream().anyMatch(size -> size.getWidth() == 800)){
+                                resolution = coSizes.stream().filter(size -> size.getWidth() == 800).findFirst().get();
+                            }else{
+                                resolution = Collections.max( coSizes, new CompareSizesByArea());
+                            }
+                        }
+
+                        mImageReader_Back = ImageReader.newInstance(resolution.getWidth(), resolution.getHeight(),
                                 ImageFormat.JPEG, /*maxImages*/2);
 
                         Point displaySize = new Point();
                         activity.getWindowManager().getDefaultDisplay().getSize(displaySize);
                         int maxPreviewWidth = displaySize.x;
                         int maxPreviewHeight = displaySize.y;
+
                         if (maxPreviewWidth > MAX_PREVIEW_WIDTH) {
                             maxPreviewWidth = MAX_PREVIEW_WIDTH;
                         }
@@ -444,7 +520,10 @@ public class Camera2BasicFragment extends Fragment
                             mCameraId_Back = cameraId;
                             mPreviewSize_Back = chooseOptimalSize(map.getOutputSizes(SurfaceTexture.class),
                                     width, height, maxPreviewWidth,
-                                    maxPreviewHeight, largest);
+                                    maxPreviewHeight, resolution);
+                            Log.e("Camera OutputSizes Back", coSizes.toString());
+                            Log.e("Camera resolution Back", resolution.toString());
+                            mTextResolution_Back.setText(resolution.toString());
                         }
                     }
                 } catch (CameraAccessException e) {
@@ -467,12 +546,21 @@ public class Camera2BasicFragment extends Fragment
                             continue;
                         }
 
-                        // For still image captures, we use the largest available size.
-                        Size largest = Collections.max(
-                                Arrays.asList(map.getOutputSizes(ImageFormat.JPEG)),
-                                new CompareSizesByArea());
-                        mImageReader_Front = ImageReader.newInstance(largest.getWidth(), largest.getHeight(),
+                        List<Size> coSizes = Arrays.asList(map.getOutputSizes(ImageFormat.JPEG));
+                        Log.e("Camera OutputSizes Front", coSizes.toString());
+
+                        Size resolution;
+
+                        if(coSizes.stream().anyMatch(size -> size.equals(new Size(1280, 720)))){
+                            resolution = coSizes.stream().filter(size -> size.equals(new Size(1280, 720))).findFirst().get();
+                        }else{
+                            resolution = Collections.max( coSizes, new CompareSizesByArea());
+                        }
+                        mImageReader_Front = ImageReader.newInstance(resolution.getWidth(), resolution.getHeight(),
                                 ImageFormat.JPEG, /*maxImages*/2);
+
+                        Log.e("Camera resolution Front", resolution.toString());
+
 
                         Point displaySize = new Point();
                         activity.getWindowManager().getDefaultDisplay().getSize(displaySize);
@@ -491,7 +579,7 @@ public class Camera2BasicFragment extends Fragment
                             mCameraId_Front = cameraId;
                             mPreviewSize_Front = chooseOptimalSize(map.getOutputSizes(SurfaceTexture.class),
                                     width, height, maxPreviewWidth,
-                                    maxPreviewHeight, largest);
+                                    maxPreviewHeight, resolution);
                         }
                     }
                 } catch (CameraAccessException e) {
@@ -506,6 +594,7 @@ public class Camera2BasicFragment extends Fragment
     }
 
     private void openCamera(int camera_num, int width, int height) {
+        Log.e("openCamera", "openCamera" +camera_num);
         switch (camera_num) {
             case 0: {
                 if (ContextCompat.checkSelfPermission(getActivity(), Manifest.permission.CAMERA)
@@ -519,6 +608,7 @@ public class Camera2BasicFragment extends Fragment
                     if (!mCameraOpenCloseLock_Back.tryAcquire(2500, TimeUnit.MILLISECONDS)) {
                         throw new RuntimeException("Time out waiting to lock camera opening.");
                     }
+                    mCameraBack_Toggle = true;
                     manager.openCamera(mCameraId_Back, mStateCallback_Back, null);
                 } catch (CameraAccessException e) {
                     e.printStackTrace();
@@ -540,7 +630,9 @@ public class Camera2BasicFragment extends Fragment
                         throw new RuntimeException("Time out waiting to lock camera opening.");
                     }
                     mCameraFront_Toggle = true;
-                    manager.openCamera(mCameraId_Front, mStateCallback_Front, null);
+                    if(mCameraId_Front != null){
+                        manager.openCamera(mCameraId_Front, mStateCallback_Front, null);
+                    }
                 } catch (CameraAccessException e) {
                     e.printStackTrace();
                 } catch (InterruptedException e) {
@@ -556,6 +648,7 @@ public class Camera2BasicFragment extends Fragment
             switch (num) {
                 case 0: {
                     mCameraOpenCloseLock_Back.acquire();
+                    mCameraBack_Toggle = false;
                     if (null != mCaptureSession_Back) {
                         mCaptureSession_Back.close();
                         mCaptureSession_Back = null;
@@ -568,11 +661,12 @@ public class Camera2BasicFragment extends Fragment
                         mImageReader_Back.close();
                         mImageReader_Back = null;
                     }
+                    mCameraOpenCloseLock_Back.release();
                     break;
                 }
                 case 1: {
-                    mCameraFront_Toggle = false;
                     mCameraOpenCloseLock_Front.acquire();
+                    mCameraFront_Toggle = false;
                     if (null != mCaptureSession_Front) {
                         mCaptureSession_Front.close();
                         mCaptureSession_Front = null;
@@ -585,15 +679,12 @@ public class Camera2BasicFragment extends Fragment
                         mImageReader_Front.close();
                         mImageReader_Front = null;
                     }
+                    mCameraOpenCloseLock_Front.release();
                     break;
                 }
             }
-
         } catch (InterruptedException e) {
             throw new RuntimeException("Interrupted while trying to lock camera closing.", e);
-        } finally {
-            mCameraOpenCloseLock_Back.release();
-            mCameraOpenCloseLock_Front.release();
         }
     }
 
