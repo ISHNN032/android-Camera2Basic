@@ -606,10 +606,11 @@ public class Camera2BasicFragment extends Fragment
                 configureTransform(0, width, height);
                 try {
                     if (!mCameraOpenCloseLock_Back.tryAcquire(2500, TimeUnit.MILLISECONDS)) {
-                        throw new RuntimeException("Time out waiting to lock camera opening.");
+                        showToast("Camera0 Open Timeout");
                     }
                     mCameraBack_Toggle = true;
                     manager.openCamera(mCameraId_Back, mStateCallback_Back, null);
+                    mCameraOpenCloseLock_Back.release();
                 } catch (CameraAccessException e) {
                     e.printStackTrace();
                 } catch (InterruptedException e) {
@@ -627,12 +628,13 @@ public class Camera2BasicFragment extends Fragment
                 configureTransform(1, width, height);
                 try {
                     if (!mCameraOpenCloseLock_Front.tryAcquire(2500, TimeUnit.MILLISECONDS)) {
-                        throw new RuntimeException("Time out waiting to lock camera opening.");
+                        showToast("Camera1 Open Timeout");
                     }
                     mCameraFront_Toggle = true;
                     if(mCameraId_Front != null){
                         manager.openCamera(mCameraId_Front, mStateCallback_Front, null);
                     }
+                    mCameraOpenCloseLock_Front.release();
                 } catch (CameraAccessException e) {
                     e.printStackTrace();
                 } catch (InterruptedException e) {

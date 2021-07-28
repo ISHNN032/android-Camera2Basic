@@ -31,6 +31,8 @@ import androidx.appcompat.app.AppCompatActivity;
 public class CameraActivity extends AppCompatActivity {
     //CheckThread mThread = new CheckThread();
 
+    BroadcastReceiver mReceiver;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -45,22 +47,26 @@ public class CameraActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
-        BroadcastReceiver receiver = new BroadcastReceiver() {
+        mReceiver = new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
                 String action = intent.getAction();
                 switch (action){
-                    case "com.android.server.display.broadcast.DISCONNECTED": {
+                    case "com.android.server.display.broadcast.CONNECTION_CHANGED": {
                         int value = intent.getIntExtra("displayValue", -1);
                         boolean connected = intent.getBooleanExtra("connected", false);
                         Log.e("onReceive",
                                 String.format("action: %s, value: %d, connected: %s", action, value, connected));
+                        if(connected){
+                            Camera2BasicFragment fragment = (Camera2BasicFragment) getSupportFragmentManager().getFragments().get(0);
+                            fragment.refreshCamera();
+                        }
                         break;
                     }
                     case "android.intent.action.HDMI_PLUGGED": {
-                        Bundle value = intent.getExtras();
+                        boolean state = intent.getBooleanExtra("state", false);
                         Log.e("onReceive",
-                                String.format("action: %s, value: %s", action, value.toString()));
+                                String.format("action: %s, state: %s", action, state));
                         Camera2BasicFragment fragment = (Camera2BasicFragment) getSupportFragmentManager().getFragments().get(0);
                         fragment.refreshCamera();
                         break;
@@ -70,7 +76,13 @@ public class CameraActivity extends AppCompatActivity {
         };
         IntentFilter filter = new IntentFilter("com.android.server.display.broadcast.CONNECTION_CHANGED");
         filter.addAction("android.intent.action.HDMI_PLUGGED");
-        registerReceiver(receiver, filter);
+        registerReceiver(mReceiver, filter);
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        unregisterReceiver(mReceiver);
     }
 
     @Override
