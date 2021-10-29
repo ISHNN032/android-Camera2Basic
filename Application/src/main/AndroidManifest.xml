@@ -16,14 +16,10 @@
 -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.example.android.camera2basic.dualcamprev"
-    android:sharedUserId="android.uid.system">
-
-    <uses-permission android:name="android.permission.ACCESS_SUPERUSER"/>
+    package="com.example.android.camera2basic.dualcamprev">
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
     <uses-permission android:name="android.permission.CAMERA" />
-
     <uses-feature android:name="android.hardware.camera" />
 
     <protected-broadcast android:name="com.android.server.display.broadcast.CONNECTION_CHANGED"/>

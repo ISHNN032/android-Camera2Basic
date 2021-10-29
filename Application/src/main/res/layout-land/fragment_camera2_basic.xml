@@ -60,16 +60,32 @@
         android:id="@+id/btn_cam_front"
         android:layout_width="120dp"
         android:layout_height="80dp"
-        android:text="ON / OFF"
-        android:textSize="24sp"
         android:layout_alignParentBottom="true"
         android:layout_toStartOf="@id/texture_front"
-        />
+        android:text="ON / OFF"
+        android:textSize="24sp" />
 
     <com.example.android.camera2basic.dualcamprev.AutoFitTextureView
         android:id="@+id/texture_front"
         android:layout_width="568dp"
         android:layout_height="320dp"
         android:layout_alignParentEnd="true"
-        android:layout_alignParentBottom="true"/>
+        android:layout_alignParentBottom="true" />
+
+
+    <Button
+        android:id="@+id/btn_cam_extern"
+        android:layout_width="120dp"
+        android:layout_height="80dp"
+        android:layout_below="@id/texture_extern"
+        android:layout_alignEnd="@id/texture_extern"
+        android:text="ON / OFF"
+        android:textSize="24sp" />
+
+    <com.example.android.camera2basic.dualcamprev.AutoFitTextureView
+        android:id="@+id/texture_extern"
+        android:layout_width="568dp"
+        android:layout_height="320dp"
+        android:layout_alignParentTop="true"
+        android:layout_alignParentEnd="true" />
 </RelativeLayout>

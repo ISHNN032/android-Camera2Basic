@@ -119,6 +119,17 @@ public class Camera2BasicFragment extends Fragment
     private boolean mCameraFront_Toggle = false;
 
 
+    private String mCameraId_Extern;
+    private AutoFitTextureView mTextureView_Extern;
+    private CameraCaptureSession mCaptureSession_Extern;
+    private CameraDevice mCameraDevice_Extern;
+    private ImageReader mImageReader_Extern;
+    private final Semaphore mCameraOpenCloseLock_Extern = new Semaphore(1);
+    private Size mPreviewSize_Extern = new Size(0, 0);
+
+    private boolean mCameraExtern_Toggle = true;
+
+
     CameraManager manager;
     DisplayDetectManager displayManager;
 
@@ -179,6 +190,36 @@ public class Camera2BasicFragment extends Fragment
         }
 
     };
+
+    /**
+     * {@link CameraDevice.StateCallback} is called when {@link CameraDevice} changes its state.
+     */
+    private final CameraDevice.StateCallback mStateCallback_Extern = new CameraDevice.StateCallback() {
+        @Override
+        public void onOpened(@NonNull CameraDevice cameraDevice) {
+            // This method is called when the camera is opened.  We start camera preview here.
+            mCameraOpenCloseLock_Extern.release();
+            mCameraDevice_Extern = cameraDevice;
+            createCameraPreviewSession(2);
+        }
+
+        @Override
+        public void onDisconnected(@NonNull CameraDevice cameraDevice) {
+            mCameraOpenCloseLock_Extern.release();
+            cameraDevice.close();
+            mCameraDevice_Extern = null;
+        }
+
+        @Override
+        public void onError(@NonNull CameraDevice cameraDevice, int error) {
+            mCameraOpenCloseLock_Extern.release();
+            cameraDevice.close();
+            mCameraDevice_Extern = null;
+            Log.e("Camera_Callback_Error", cameraDevice.toString() + " Error");
+        }
+
+    };
+
 
     private void showToast(final String text) {
         final Activity activity = getActivity();
@@ -255,10 +296,13 @@ public class Camera2BasicFragment extends Fragment
     public void onViewCreated(final View view, Bundle savedInstanceState) {
         mTextureView_Back = (AutoFitTextureView) view.findViewById(R.id.texture_back);
         mTextureView_Front = (AutoFitTextureView) view.findViewById(R.id.texture_front);
+        mTextureView_Extern = (AutoFitTextureView) view.findViewById(R.id.texture_extern);
+
         mTextCameraMode_Back = (TextView) view.findViewById(R.id.text_camera_back);
         mTextResolution_Back = (TextView) view.findViewById(R.id.text_resolution_back);
         Button mBtnBack = (Button) view.findViewById(R.id.btn_cam_back);
         Button mBtnFront = (Button) view.findViewById(R.id.btn_cam_front);
+        Button mBtnExtern = (Button) view.findViewById(R.id.btn_cam_extern);
 
         mBtnBack.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -282,6 +326,19 @@ public class Camera2BasicFragment extends Fragment
                 } else {
                     Log.e("Clicked", "open");
                     openCamera(1, mPreviewSize_Front.getWidth(), mPreviewSize_Front.getHeight());
+                }
+            }
+        });
+
+        mBtnExtern.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                if (mCameraExtern_Toggle) {
+                    Log.e("Clicked", "close");
+                    closeCamera(2);
+                } else {
+                    Log.e("Clicked", "open");
+                    openCamera(2, mPreviewSize_Extern.getWidth(), mPreviewSize_Extern.getHeight());
                 }
             }
         });
@@ -368,6 +425,41 @@ public class Camera2BasicFragment extends Fragment
                             @Override
                             public boolean onSurfaceTextureDestroyed(SurfaceTexture texture) {
                                 Log.e("DEBUG", "onSurfaceTextureDestroyed 1");
+                                return true;
+                            }
+
+                            @Override
+                            public void onSurfaceTextureUpdated(SurfaceTexture texture) {
+                            }
+                        });
+                    }
+                }
+            }, 0);
+        }
+        if(!mCameraExtern_Toggle){
+            handler.postDelayed(new Runnable() {
+                @Override
+                public void run() {
+                    if (mTextureView_Extern.isAvailable()) {
+                        Log.e("DEBUG", "openCamera 2");
+//                        openCamera(1, mTextureView_Front.getWidth(), mTextureView_Front.getHeight());
+                    } else {
+                        mTextureView_Extern.setSurfaceTextureListener(new TextureView.SurfaceTextureListener() {
+                            @Override
+                            public void onSurfaceTextureAvailable(SurfaceTexture texture, int width, int height) {
+                                Log.e("DEBUG", "onSurfaceTextureAvailable 2");
+//                                openCamera(1, width, height);
+                            }
+
+                            @Override
+                            public void onSurfaceTextureSizeChanged(SurfaceTexture texture, int width, int height) {
+                                Log.e("DEBUG", "onSurfaceTextureSizeChanged 2");
+                                configureTransform(2, width, height);
+                            }
+
+                            @Override
+                            public boolean onSurfaceTextureDestroyed(SurfaceTexture texture) {
+                                Log.e("DEBUG", "onSurfaceTextureDestroyed 2");
                                 return true;
                             }
 
@@ -514,7 +606,6 @@ public class Camera2BasicFragment extends Fragment
                             maxPreviewHeight = MAX_PREVIEW_HEIGHT;
                         }
 
-                        // We don't use a front facing camera in this sample.
                         Integer facing = characteristics.get(CameraCharacteristics.LENS_FACING);
                         if (facing != null && facing == CameraCharacteristics.LENS_FACING_BACK) {
                             mCameraId_Back = cameraId;
@@ -573,11 +664,67 @@ public class Camera2BasicFragment extends Fragment
                             maxPreviewHeight = MAX_PREVIEW_HEIGHT;
                         }
 
-                        // We don't use a front facing camera in this sample.
                         Integer facing = characteristics.get(CameraCharacteristics.LENS_FACING);
                         if (facing != null && facing == CameraCharacteristics.LENS_FACING_FRONT) {
                             mCameraId_Front = cameraId;
                             mPreviewSize_Front = chooseOptimalSize(map.getOutputSizes(SurfaceTexture.class),
+                                    width, height, maxPreviewWidth,
+                                    maxPreviewHeight, resolution);
+                        }
+                    }
+                } catch (CameraAccessException e) {
+                    e.printStackTrace();
+                } catch (NullPointerException e) {
+                    ErrorDialog.newInstance(getString(R.string.camera_error))
+                            .show(getChildFragmentManager(), FRAGMENT_DIALOG);
+                }
+                break;
+            }
+            case 2: {
+                try {
+                    for (String cameraId : manager.getCameraIdList()) {
+                        CameraCharacteristics characteristics
+                                = manager.getCameraCharacteristics(cameraId);
+
+                        //region Camera Preview Setting
+                        StreamConfigurationMap map = characteristics.get(
+                                CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
+                        if (map == null) {
+                            continue;
+                        }
+
+                        List<Size> coSizes = Arrays.asList(map.getOutputSizes(ImageFormat.JPEG));
+                        Log.e("Camera OutputSizes Extern", coSizes.toString());
+
+                        Size resolution;
+
+                        if(coSizes.stream().anyMatch(size -> size.equals(new Size(1280, 720)))){
+                            resolution = coSizes.stream().filter(size -> size.equals(new Size(1280, 720))).findFirst().get();
+                        }else{
+                            resolution = Collections.max( coSizes, new CompareSizesByArea());
+                        }
+                        mImageReader_Extern = ImageReader.newInstance(resolution.getWidth(), resolution.getHeight(),
+                                ImageFormat.JPEG, /*maxImages*/2);
+
+                        Log.e("Camera resolution Extern", resolution.toString());
+
+
+                        Point displaySize = new Point();
+                        activity.getWindowManager().getDefaultDisplay().getSize(displaySize);
+                        int maxPreviewWidth = displaySize.x;
+                        int maxPreviewHeight = displaySize.y;
+                        if (maxPreviewWidth > MAX_PREVIEW_WIDTH) {
+                            maxPreviewWidth = MAX_PREVIEW_WIDTH;
+                        }
+                        if (maxPreviewHeight > MAX_PREVIEW_HEIGHT) {
+                            maxPreviewHeight = MAX_PREVIEW_HEIGHT;
+                        }
+                        //endregion
+
+                        Integer facing = characteristics.get(CameraCharacteristics.LENS_FACING);
+                        if (facing != null && facing == CameraCharacteristics.LENS_FACING_EXTERNAL) {
+                            mCameraId_Extern = cameraId;
+                            mPreviewSize_Extern = chooseOptimalSize(map.getOutputSizes(SurfaceTexture.class),
                                     width, height, maxPreviewWidth,
                                     maxPreviewHeight, resolution);
                         }
@@ -642,6 +789,30 @@ public class Camera2BasicFragment extends Fragment
                 }
                 break;
             }
+            case 2: {
+                if (ContextCompat.checkSelfPermission(getActivity(), Manifest.permission.CAMERA)
+                        != PackageManager.PERMISSION_GRANTED) {
+                    requestCameraPermission();
+                    return;
+                }
+                setUpCameraOutputs(2, width, height);
+                configureTransform(2, width, height);
+                try {
+                    if (!mCameraOpenCloseLock_Extern.tryAcquire(2500, TimeUnit.MILLISECONDS)) {
+                        showToast("Camera2 Open Timeout");
+                    }
+                    mCameraExtern_Toggle = true;
+                    if(mCameraId_Extern != null){
+                        manager.openCamera(mCameraId_Extern, mStateCallback_Extern, null);
+                    }
+                    mCameraOpenCloseLock_Extern.release();
+                } catch (CameraAccessException e) {
+                    e.printStackTrace();
+                } catch (InterruptedException e) {
+                    throw new RuntimeException("Interrupted while trying to lock camera opening.", e);
+                }
+                break;
+            }
         }
     }
 
@@ -682,6 +853,24 @@ public class Camera2BasicFragment extends Fragment
                         mImageReader_Front = null;
                     }
                     mCameraOpenCloseLock_Front.release();
+                    break;
+                }
+                case 2: {
+                    mCameraOpenCloseLock_Extern.acquire();
+                    mCameraExtern_Toggle = false;
+                    if (null != mCaptureSession_Extern) {
+                        mCaptureSession_Extern.close();
+                        mCaptureSession_Extern = null;
+                    }
+                    if (null != mCameraDevice_Extern) {
+                        mCameraDevice_Extern.close();
+                        mCameraDevice_Extern = null;
+                    }
+                    if (null != mImageReader_Extern) {
+                        mImageReader_Extern.close();
+                        mImageReader_Extern = null;
+                    }
+                    mCameraOpenCloseLock_Extern.release();
                     break;
                 }
             }
@@ -803,6 +992,60 @@ public class Camera2BasicFragment extends Fragment
                 }
                 break;
             }
+            case 2: {
+                try {
+                    SurfaceTexture texture = mTextureView_Extern.getSurfaceTexture();
+                    assert texture != null;
+
+                    // We configure the size of default buffer to be the size of camera preview we want.
+                    texture.setDefaultBufferSize(mPreviewSize_Extern.getWidth(), mPreviewSize_Extern.getHeight());
+
+                    // This is the output Surface we need to start preview.
+                    Surface surface = new Surface(texture);
+
+                    // We set up a CaptureRequest.Builder with the output Surface.
+                    final CaptureRequest.Builder previewRequestBuilder
+                            = mCameraDevice_Extern.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
+                    previewRequestBuilder.addTarget(surface);
+
+                    // Here, we create a CameraCaptureSession for camera preview.
+                    mCameraDevice_Extern.createCaptureSession(Arrays.asList(surface, mImageReader_Extern.getSurface()),
+                            new CameraCaptureSession.StateCallback() {
+                                @Override
+                                public void onConfigured(@NonNull CameraCaptureSession cameraCaptureSession) {
+                                    // The camera is already closed
+                                    if (null == mCameraDevice_Extern) {
+                                        return;
+                                    }
+
+                                    // When the session is ready, we start displaying the preview.
+                                    mCaptureSession_Extern = cameraCaptureSession;
+                                    try {
+                                        // Auto focus should be continuous for camera preview.
+                                        previewRequestBuilder.set(CaptureRequest.CONTROL_AF_MODE,
+                                                CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE);
+
+                                        // Finally, we start displaying the camera preview.
+                                        CaptureRequest previewRequest = previewRequestBuilder.build();
+                                        mCaptureSession_Extern.setRepeatingRequest(previewRequest,
+                                                null, null);
+                                    } catch (CameraAccessException e) {
+                                        e.printStackTrace();
+                                    }
+                                }
+
+                                @Override
+                                public void onConfigureFailed(
+                                        @NonNull CameraCaptureSession cameraCaptureSession) {
+                                    showToast("Failed");
+                                }
+                            }, null
+                    );
+                } catch (CameraAccessException e) {
+                    e.printStackTrace();
+                }
+                break;
+            }
         }
     }
 
@@ -843,7 +1086,7 @@ public class Camera2BasicFragment extends Fragment
                 break;
             }
             case 1: {
-                RectF bufferRect = new RectF(0, 0, mPreviewSize_Front.getHeight(), mPreviewSize_Front.getWidth());
+                RectF bufferRect = new RectF(0, 0, mPreviewSize_Extern.getHeight(), mPreviewSize_Front.getWidth());
                 if (Surface.ROTATION_90 == rotation || Surface.ROTATION_270 == rotation) {
                     bufferRect.offset(centerX - bufferRect.centerX(), centerY - bufferRect.centerY());
                     matrix.setRectToRect(viewRect, bufferRect, Matrix.ScaleToFit.FILL);
@@ -859,6 +1102,25 @@ public class Camera2BasicFragment extends Fragment
                     return;
                 }
                 mTextureView_Front.setTransform(matrix);
+                break;
+            }
+            case 2: {
+                RectF bufferRect = new RectF(0, 0, mPreviewSize_Extern.getHeight(), mPreviewSize_Extern.getWidth());
+                if (Surface.ROTATION_90 == rotation || Surface.ROTATION_270 == rotation) {
+                    bufferRect.offset(centerX - bufferRect.centerX(), centerY - bufferRect.centerY());
+                    matrix.setRectToRect(viewRect, bufferRect, Matrix.ScaleToFit.FILL);
+                    float scale = Math.max(
+                            (float) viewHeight / mPreviewSize_Extern.getHeight(),
+                            (float) viewWidth / mPreviewSize_Extern.getWidth());
+                    matrix.postScale(scale, scale, centerX, centerY);
+                    matrix.postRotate(90 * (rotation - 2), centerX, centerY);
+                } else if (Surface.ROTATION_180 == rotation) {
+                    matrix.postRotate(180, centerX, centerY);
+                }
+                if (null == mTextureView_Extern || null == mPreviewSize_Extern) {
+                    return;
+                }
+                mTextureView_Extern.setTransform(matrix);
                 break;
             }
         }
