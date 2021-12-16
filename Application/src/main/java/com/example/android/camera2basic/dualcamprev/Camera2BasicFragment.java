@@ -915,7 +915,7 @@ public class Camera2BasicFragment extends Fragment
                                     try {
                                         // Auto focus should be continuous for camera preview.
                                         previewRequestBuilder.set(CaptureRequest.CONTROL_AF_MODE,
-                                                CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE);
+                                                CaptureRequest.CONTROL_AF_MODE_AUTO);
 
                                         // Finally, we start displaying the camera preview.
                                         CaptureRequest previewRequest = previewRequestBuilder.build();
@@ -969,7 +969,7 @@ public class Camera2BasicFragment extends Fragment
                                     try {
                                         // Auto focus should be continuous for camera preview.
                                         previewRequestBuilder.set(CaptureRequest.CONTROL_AF_MODE,
-                                                CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE);
+                                                CaptureRequest.CONTROL_AF_MODE_AUTO);
 
                                         // Finally, we start displaying the camera preview.
                                         CaptureRequest previewRequest = previewRequestBuilder.build();
@@ -1023,7 +1023,7 @@ public class Camera2BasicFragment extends Fragment
                                     try {
                                         // Auto focus should be continuous for camera preview.
                                         previewRequestBuilder.set(CaptureRequest.CONTROL_AF_MODE,
-                                                CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE);
+                                                CaptureRequest.CONTROL_AF_MODE_AUTO);
 
                                         // Finally, we start displaying the camera preview.
                                         CaptureRequest previewRequest = previewRequestBuilder.build();

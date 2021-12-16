@@ -519,7 +519,7 @@ class Camera2BasicFragment : Fragment(), View.OnClickListener,
                             try {
                                 // Auto focus should be continuous for camera preview.
                                 previewRequestBuilder.set(CaptureRequest.CONTROL_AF_MODE,
-                                        CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE)
+                                    CameraMetadata.CONTROL_AF_MODE_AUTO)
                                 // Flash is automatically enabled when necessary.
                                 setAutoFlash(previewRequestBuilder)
 
@@ -636,7 +636,7 @@ class Camera2BasicFragment : Fragment(), View.OnClickListener,
 
                 // Use the same AE and AF modes as the preview.
                 set(CaptureRequest.CONTROL_AF_MODE,
-                        CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE)
+                        CaptureRequest.CONTROL_AF_MODE_AUTO)
             }?.also { setAutoFlash(it) }
 
             val captureCallback = object : CameraCaptureSession.CaptureCallback() {
